@@ -1,0 +1,59 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Permet de relancer le déploiement à la main depuis l'onglet Actions.
+  workflow_dispatch:
+
+# Le workflow publie sur la branche `gh-pages` (Pages doit être configuré avec
+# Source = "Deploy from a branch" -> branche `gh-pages` / dossier `/ (root)`).
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          # Base path = nom du dépôt (les assets doivent être servis depuis /<repo>/).
+          BASE_PATH: /${{ github.event.repository.name }}/
+          # Clé TMDB publique. Définissez `TMDB_API_KEY` dans Settings -> Secrets
+          # and variables -> Actions pour utiliser la vôtre, sinon la valeur par
+          # défaut (clé publique de démo) est utilisée.
+          VITE_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY || '96abd37471b06f5450f26f4d1a2ee7fa' }}
+          VITE_TMDB_LANGUAGE: fr-FR
+          # Résolveurs de flux (facultatifs) : Settings -> Variables -> Actions.
+          VITE_CINEPRO_API_URL: ${{ vars.CINEPRO_API_URL }}
+          VITE_AUTOFLIX_API_URL: ${{ vars.AUTOFLIX_API_URL }}
+        run: npm run build
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          # .nojekyll évite que Jekyll ignore les dossiers commençant par `_`.
+          enable_jekyll: false
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com

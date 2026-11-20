@@ -1,0 +1,29 @@
+# Dépendances
+node_modules
+.pnp
+.pnp.js
+
+# Build
+dist
+dist-ssr
+*.local
+
+# Variables d'environnement (la clé publique est documentée dans .env.example)
+.env
+.env.*
+!.env.example
+
+# Éditeurs / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Outils locaux
+.freebuff/
