@@ -1,0 +1,20 @@
+{
+  "sources": {
+    "movie:19": [
+      {
+        "url": "https://archive.org/download/metropolis_20230102/Metropolis.mp4",
+        "quality": "480p",
+        "language": "VO",
+        "provider": "Internet Archive — domaine public"
+      }
+    ],
+    "movie:653": [
+      {
+        "url": "https://archive.org/download/nosferatu_1922/nosferatu_1922.mp4",
+        "quality": "480p",
+        "language": "VO",
+        "provider": "Internet Archive — domaine public"
+      }
+    ]
+  }
+}

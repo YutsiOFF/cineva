@@ -69,8 +69,10 @@ export interface StreamResolution {
   sources: StreamSource[]
   /** Messages non bloquants (résolveur en erreur, aucun résultat, …). */
   warnings: string[]
-  /** Vrai si au moins une API distante est configurée. */
+  /** Vrai si au moins une API distante ou un catalogue local est disponible. */
   configured: boolean
+  /** Nombre de sources trouvées dans `public/streams.json` pour ce titre. */
+  localCatalog: number
 }
 
 /* ------------------------------- Config --------------------------------- */
@@ -198,6 +200,80 @@ function normalizeSources(payload: unknown, providerFallback: string): StreamSou
   return sources.filter((source): source is StreamSource => source !== null)
 }
 
+/* --------------------------- Catalogue local ---------------------------- */
+
+/**
+ * Sources déclarées à la main dans `public/streams.json`, servi avec le site.
+ * Permet de lire des vidéos dont vous détenez les droits (ou du domaine public)
+ * sans aucun backend. Clés acceptées :
+ *   movie:<tmdbId>
+ *   tv:<tmdbId> | tv:<tmdbId>:<saison> | tv:<tmdbId>:<saison>:<épisode>
+ */
+interface LocalManifestEntry {
+  url?: string
+  quality?: string
+  language?: string
+  provider?: string
+  protocol?: string
+  subtitles?: SubtitleTrack[]
+}
+
+let localManifestPromise: Promise<Record<string, LocalManifestEntry[]>> | null = null
+
+function loadLocalManifest(): Promise<Record<string, LocalManifestEntry[]>> {
+  if (!localManifestPromise) {
+    localManifestPromise = fetch(`${import.meta.env.BASE_URL}streams.json`, {
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: unknown) => {
+        const record = isRecord(payload) && isRecord(payload.sources) ? payload.sources : payload
+        if (!isRecord(record)) return {}
+        const manifest: Record<string, LocalManifestEntry[]> = {}
+        for (const [key, value] of Object.entries(record)) {
+          if (Array.isArray(value)) manifest[key] = value.filter(isRecord) as LocalManifestEntry[]
+        }
+        return manifest
+      })
+      .catch(() => ({}) as Record<string, LocalManifestEntry[]>)
+  }
+  return localManifestPromise
+}
+
+function localKeysFor(request: StreamRequest): string[] {
+  if (request.kind === 'movie') return [`movie:${request.tmdbId}`]
+  const season = request.season ?? 1
+  const episode = request.episode ?? 1
+  return [
+    `tv:${request.tmdbId}:${season}:${episode}`,
+    `tv:${request.tmdbId}:${season}`,
+    `tv:${request.tmdbId}`,
+  ]
+}
+
+function localSourceFromEntry(entry: LocalManifestEntry, index: number): StreamSource | null {
+  const rawUrl = typeof entry.url === 'string' ? entry.url.trim() : ''
+  if (!/^https?:\/\//i.test(rawUrl)) return null
+  return {
+    id: `local-${index}-${rawUrl}`.slice(0, 180),
+    url: rawUrl,
+    protocol: detectProtocol(rawUrl, { protocol: entry.protocol }),
+    provider: typeof entry.provider === 'string' && entry.provider ? entry.provider : 'Catalogue local',
+    quality: entry.quality ? String(entry.quality) : undefined,
+    language: entry.language ? String(entry.language) : undefined,
+    subtitles: normalizeSubtitles(entry.subtitles),
+  }
+}
+
+async function resolveFromLocalCatalog(request: StreamRequest) {
+  const manifest = await loadLocalManifest()
+  const entries = localKeysFor(request).flatMap((key) => manifest[key] ?? [])
+  const sources = entries
+    .map((entry, index) => localSourceFromEntry(entry, index))
+    .filter((source): source is StreamSource => source !== null)
+  return { sources, hasCatalog: Object.keys(manifest).length > 0 }
+}
+
 /* ------------------------------ Résolveurs ------------------------------ */
 
 interface Resolver {
@@ -259,6 +335,11 @@ export async function resolveStreams(
   const collected: StreamSource[] = []
   const enabled = resolvers.filter((resolver) => resolver.isEnabled())
 
+  // 1) Catalogue local (`public/streams.json`) : vos propres sources passent en premier.
+  const local = await resolveFromLocalCatalog(request)
+  collected.push(...local.sources)
+
+  // 2) Résolveurs HTTP distants (CinePro / AutoFlix).
   for (const resolver of enabled) {
     try {
       const sources = await resolver.resolve(request, signal)
@@ -291,7 +372,12 @@ export async function resolveStreams(
     })
     .sort((a, b) => qualityScore(b.quality) - qualityScore(a.quality))
 
-  return { sources, warnings, configured: Boolean(enabled.length) }
+  return {
+    sources,
+    warnings,
+    configured: Boolean(enabled.length) || local.hasCatalog,
+    localCatalog: local.sources.length,
+  }
 }
 
 function qualityScore(quality: string | undefined): number {

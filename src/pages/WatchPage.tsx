@@ -187,6 +187,10 @@ export default function WatchPage() {
                 <li className={cn(streamResolverConfig.autoflix ? 'text-emerald-300/80' : '')}>
                   AutoFlix : {streamResolverConfig.autoflix ? 'configuré' : 'non configuré'}
                 </li>
+                <li className={cn(resolution.data?.localCatalog ? 'text-emerald-300/80' : '')}>
+                  Catalogue local :{' '}
+                  {resolution.data?.localCatalog ? `${resolution.data.localCatalog} source(s)` : 'aucune source'}
+                </li>
               </ul>
             </div>
           </aside>
@@ -222,8 +226,8 @@ function NoSourcePanel({ configured, warnings, onRetry }: NoSourcePanelProps) {
         <h2 className="font-display text-base font-semibold sm:text-lg">Aucun flux disponible</h2>
         <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-white/50 sm:text-sm">
           {configured
-            ? "Les résolveurs n'ont renvoyé aucune source lisible pour ce contenu. Essayez une autre source, ou relancez la recherche."
-            : "Aucun résolveur n'est configuré. GitHub Pages ne peut pas héberger de backend : indiquez l'URL d'une instance CinePro ou AutoFlix déjà déployée."}
+            ? "Aucune source n'a été trouvée pour ce titre, ni dans le catalogue local ni via les résolveurs distants. Ajoutez-le dans public/streams.json ou relancez la recherche."
+            : "Aucune source n'est configurée pour ce titre. GitHub Pages ne peut pas héberger de backend : ajoutez une vidéo dans public/streams.json, ou indiquez l'URL d'une instance CinePro/AutoFlix."}
         </p>
       </div>
 
@@ -242,9 +246,20 @@ function NoSourcePanel({ configured, warnings, onRetry }: NoSourcePanelProps) {
 
       <details className="w-full max-w-lg rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left">
         <summary className="cursor-pointer text-xs font-medium text-white/60">
-          Brancher CinePro Core ou AutoFlix
+          Ajouter vos propres sources, ou brancher CinePro / AutoFlix
         </summary>
         <div className="mt-3 space-y-2 text-[11px] leading-relaxed text-white/45">
+          <p className="font-medium text-white/60">Sans backend : `public/streams.json`</p>
+          <p>
+            Déclarez une vidéo que vous hébergez (MP4 H.264 ou HLS .m3u8, HTTPS) avec la clé TMDB du titre :
+          </p>
+          <pre className="overflow-x-auto rounded-lg bg-black/60 p-2.5 text-[10px] text-white/70">{`{
+  "sources": {
+    "movie:19": [{"url": "https://…/metropolis.mp4", "quality": "480p"}],
+    "tv:1399:1:1": [{"url": "https://…/ep1.m3u8", "quality": "1080p"}]
+  }
+}`}</pre>
+          <p className="font-medium text-white/60">Avec un backend : variable d&apos;environnement</p>
           <p>
             Renseignez l&apos;URL de votre instance dans le fichier <code className="text-accent-soft">.env</code> :
           </p>

@@ -147,6 +147,40 @@ uvicorn autoflix_api:app --host 0.0.0.0 --port 8000
 CinePro Core s'expose de la même manière : pointez `VITE_CINEPRO_API_URL` vers
 l'instance et vérifiez que la route de résolution et le CORS correspondent.
 
+### Option sans backend : catalogue local (`public/streams.json`)
+
+Pour lire des vidéos dont vous détenez les droits (ou du domaine public), aucun
+serveur n'est nécessaire. Hébergez le fichier en HTTPS (Cloudflare R2, S3, Bunny,
+un serveur à vous…) puis déclarez-le dans `public/streams.json` :
+
+```json
+{
+  "sources": {
+    "movie:19": [
+      { "url": "https://exemple.com/metropolis.mp4", "quality": "480p", "provider": "Mon hébergement" }
+    ],
+    "tv:1399:1:1": [
+      {
+        "url": "https://exemple.com/got-s01e01.m3u8",
+        "quality": "1080p",
+        "subtitles": [{ "label": "Français", "lang": "fr", "url": "https://exemple.com/fr.vtt" }]
+      }
+    ]
+  }
+}
+```
+
+- Clés : `movie:<tmdbId>`, ou pour une série `tv:<tmdbId>`, `tv:<tmdbId>:<saison>`,
+  `tv:<tmdbId>:<saison>:<épisode>` (la clé la plus précise gagne).
+- Formats : MP4 H.264 (progressive) ou HLS `.m3u8` ; sous-titres WebVTT.
+- Une source locale est **prioritaire** sur les résolveurs distants.
+- Le fichier est servi depuis la racine du site (`/streams.json`, ou
+  `/cineva/streams.json` sur GitHub Pages).
+
+Le dépôt est livré avec deux films du **domaine public** en démonstration
+(*Metropolis*, 1927 — TMDB 19 ; *Nosferatu*, 1922 — TMDB 653) : leur bouton
+« Lecture » fonctionne réellement, sans backend. Remplacez-les par vos contenus.
+
 ### Lecteur
 
 - HLS via `hls.js` avec récupération automatique (réseau / média), bascule sur
