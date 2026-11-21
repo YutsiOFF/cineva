@@ -42,9 +42,10 @@ jobs:
           # défaut (clé publique de démo) est utilisée.
           VITE_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY || '96abd37471b06f5450f26f4d1a2ee7fa' }}
           VITE_TMDB_LANGUAGE: fr-FR
-          # Résolveurs de flux (facultatifs) : Settings -> Variables -> Actions.
-          VITE_CINEPRO_API_URL: ${{ vars.CINEPRO_API_URL }}
-          VITE_AUTOFLIX_API_URL: ${{ vars.AUTOFLIX_API_URL }}
+          # Disponibilité légale (facultative) : Settings -> Variables -> Actions.
+          VITE_WATCH_REGION: ${{ vars.WATCH_REGION || 'FR' }}
+          VITE_WATCHMODE_API_KEY: ${{ vars.WATCHMODE_API_KEY }}
+          VITE_STREAMING_AVAILABILITY_API_KEY: ${{ vars.STREAMING_AVAILABILITY_API_KEY }}
         run: npm run build
 
       - name: Publish to gh-pages

@@ -8,8 +8,9 @@
 interface ImportMetaEnv {
   readonly VITE_TMDB_API_KEY?: string
   readonly VITE_TMDB_LANGUAGE?: string
-  readonly VITE_CINEPRO_API_URL?: string
-  readonly VITE_AUTOFLIX_API_URL?: string
+  readonly VITE_WATCH_REGION?: string
+  readonly VITE_WATCHMODE_API_KEY?: string
+  readonly VITE_STREAMING_AVAILABILITY_API_KEY?: string
   readonly VITE_DEMO_STREAM_URL?: string
 }
 

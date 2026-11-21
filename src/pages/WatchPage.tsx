@@ -1,22 +1,23 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { VideoPlayer } from '../components/player/VideoPlayer'
+import { WatchProviders } from '../components/media/WatchProviders'
 import { SourceList } from '../components/player/SourceList'
+import { VideoPlayer } from '../components/player/VideoPlayer'
 import { ErrorState } from '../components/ui/ErrorState'
 import { AlertIcon, ArrowLeftIcon, InfoIcon, RefreshIcon } from '../components/ui/icons'
 import { cn } from '../lib/cn'
 import { formatRuntime, yearOf } from '../lib/format'
 import { useAsync } from '../hooks/useAsync'
 import { fetchDetails, imageUrl } from '../services/tmdb'
-import { resolveStreams, streamResolverConfig, type StreamSource } from '../services/streamResolver'
+import { resolveStreams, type StreamSource } from '../services/streamResolver'
 import type { MediaKind } from '../types/media'
 
 /**
  * Page de lecture `/watch/:mediaType/:id?s=&e=`.
  *
- * Le flux est résolu à l'exécution par un backend distant (CinePro/AutoFlix).
- * Aucune source n'est inventée : si rien n'est configuré ou si le résolveur
- * échoue, un panneau explique comment brancher l'API.
+ * Les sources lisibles viennent de `public/streams.json` (vos fichiers) ou du
+ * flux de démonstration. Si aucune source n'est déclarée, la page affiche la
+ * disponibilité légale du titre (Watchmode / Movie of the Night).
  */
 export default function WatchPage() {
   const { mediaType, id } = useParams<{ mediaType: string; id: string }>()
@@ -72,7 +73,10 @@ export default function WatchPage() {
               {detail?.runtime ? ` · ${formatRuntime(detail.runtime)}` : ''}
             </p>
           </div>
-          <Link to="/" className="ml-auto hidden text-xs font-semibold tracking-[0.2em] text-white/40 transition hover:text-white sm:block">
+          <Link
+            to="/"
+            className="ml-auto hidden text-xs font-semibold tracking-[0.2em] text-white/40 transition hover:text-white sm:block"
+          >
             CINEVA
           </Link>
         </header>
@@ -110,11 +114,19 @@ export default function WatchPage() {
           )}
         </section>
 
+        {/* Disponibilité légale — surtout utile quand aucune source n'est déclarée. */}
+        {valid && !resolution.loading && (
+          <WatchProviders kind={kind} tmdbId={tmdbId} className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5" />
+        )}
+
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div>
             {detail?.overview && (
               <section aria-labelledby="watch-synopsis">
-                <h2 id="watch-synopsis" className="font-display text-sm font-semibold uppercase tracking-[0.16em] text-white/40">
+                <h2
+                  id="watch-synopsis"
+                  className="font-display text-sm font-semibold uppercase tracking-[0.16em] text-white/40"
+                >
                   Synopsis
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">{detail.overview}</p>
@@ -125,7 +137,7 @@ export default function WatchPage() {
               <div className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-3.5">
                 <p className="flex items-center gap-2 text-xs font-semibold text-amber-200/90">
                   <InfoIcon className="h-3.5 w-3.5" />
-                  Informations de résolution
+                  Informations
                 </p>
                 <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-amber-100/60">
                   {resolution.data.warnings.map((warning) => (
@@ -136,9 +148,7 @@ export default function WatchPage() {
             )}
 
             <div className="mt-6 flex flex-wrap gap-2 text-[11px] text-white/35">
-              <span className="rounded-md bg-white/[0.06] px-2 py-1">
-                TMDB #{tmdbId}
-              </span>
+              <span className="rounded-md bg-white/[0.06] px-2 py-1">TMDB #{tmdbId}</span>
               <span className="rounded-md bg-white/[0.06] px-2 py-1">{kind === 'movie' ? 'Film' : 'Série'}</span>
               {activeSource && (
                 <span className="rounded-md bg-white/[0.06] px-2 py-1">
@@ -173,25 +183,18 @@ export default function WatchPage() {
               />
             ) : (
               <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs leading-relaxed text-white/40">
-                Aucune source pour l&apos;instant. Les résolveurs configurés sont interrogés à chaque
-                ouverture de cette page.
+                Aucune source lisible déclarée pour ce titre. Ajoutez-la dans{' '}
+                <code className="text-accent-soft">public/streams.json</code>.
               </p>
             )}
 
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-white/40">
-              <p className="font-semibold text-white/60">Résolveurs</p>
-              <ul className="mt-2 space-y-1">
-                <li className={cn(streamResolverConfig.cinepro ? 'text-emerald-300/80' : '')}>
-                  CinePro : {streamResolverConfig.cinepro ? 'configuré' : 'non configuré'}
-                </li>
-                <li className={cn(streamResolverConfig.autoflix ? 'text-emerald-300/80' : '')}>
-                  AutoFlix : {streamResolverConfig.autoflix ? 'configuré' : 'non configuré'}
-                </li>
-                <li className={cn(resolution.data?.localCatalog ? 'text-emerald-300/80' : '')}>
-                  Catalogue local :{' '}
-                  {resolution.data?.localCatalog ? `${resolution.data.localCatalog} source(s)` : 'aucune source'}
-                </li>
-              </ul>
+              <p className="font-semibold text-white/60">Catalogue local</p>
+              <p className={cn('mt-1', resolution.data?.localCatalog ? 'text-emerald-300/80' : '')}>
+                {resolution.data?.localCatalog
+                  ? `${resolution.data.localCatalog} source(s) pour ce titre`
+                  : 'aucune source pour ce titre'}
+              </p>
             </div>
           </aside>
         </div>
@@ -223,11 +226,11 @@ function NoSourcePanel({ configured, warnings, onRetry }: NoSourcePanelProps) {
       </span>
 
       <div>
-        <h2 className="font-display text-base font-semibold sm:text-lg">Aucun flux disponible</h2>
+        <h2 className="font-display text-base font-semibold sm:text-lg">Aucune source lisible</h2>
         <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-white/50 sm:text-sm">
           {configured
-            ? "Aucune source n'a été trouvée pour ce titre, ni dans le catalogue local ni via les résolveurs distants. Ajoutez-le dans public/streams.json ou relancez la recherche."
-            : "Aucune source n'est configurée pour ce titre. GitHub Pages ne peut pas héberger de backend : ajoutez une vidéo dans public/streams.json, ou indiquez l'URL d'une instance CinePro/AutoFlix."}
+            ? "Le catalogue local ne contient pas ce titre. Ajoutez-le dans public/streams.json, ou consultez les plateformes légales ci-dessous."
+            : "Aucune source n'est déclarée. Ajoutez le titre dans public/streams.json, ou consultez les plateformes légales ci-dessous."}
         </p>
       </div>
 
@@ -246,12 +249,12 @@ function NoSourcePanel({ configured, warnings, onRetry }: NoSourcePanelProps) {
 
       <details className="w-full max-w-lg rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left">
         <summary className="cursor-pointer text-xs font-medium text-white/60">
-          Ajouter vos propres sources, ou brancher CinePro / AutoFlix
+          Ajouter vos propres vidéos
         </summary>
         <div className="mt-3 space-y-2 text-[11px] leading-relaxed text-white/45">
-          <p className="font-medium text-white/60">Sans backend : `public/streams.json`</p>
           <p>
-            Déclarez une vidéo que vous hébergez (MP4 H.264 ou HLS .m3u8, HTTPS) avec la clé TMDB du titre :
+            Hébergez un MP4 (H.264) ou un HLS <code className="text-accent-soft">.m3u8</code> en HTTPS, puis
+            déclarez-le avec l&apos;id TMDB du titre dans <code className="text-accent-soft">public/streams.json</code> :
           </p>
           <pre className="overflow-x-auto rounded-lg bg-black/60 p-2.5 text-[10px] text-white/70">{`{
   "sources": {
@@ -259,23 +262,10 @@ function NoSourcePanel({ configured, warnings, onRetry }: NoSourcePanelProps) {
     "tv:1399:1:1": [{"url": "https://…/ep1.m3u8", "quality": "1080p"}]
   }
 }`}</pre>
-          <p className="font-medium text-white/60">Avec un backend : variable d&apos;environnement</p>
           <p>
-            Renseignez l&apos;URL de votre instance dans le fichier <code className="text-accent-soft">.env</code> :
-          </p>
-          <pre className="overflow-x-auto rounded-lg bg-black/60 p-2.5 text-[10px] text-white/70">{`VITE_CINEPRO_API_URL=https://cinepro.mon-domaine.dev
-VITE_AUTOFLIX_API_URL=https://autoflix.mon-domaine.dev`}</pre>
-          <p>
-            L&apos;app appelle{' '}
-            <code className="text-accent-soft">{'{BASE}'}/stream?type=movie&amp;tmdb_id=603</code> (et{' '}
-            <code className="text-accent-soft">season</code>/<code className="text-accent-soft">episode</code> pour une
-            série), puis normalise la réponse. Adaptez le chemin ou le parseur dans{' '}
-            <code className="text-accent-soft">src/services/streamResolver.ts</code> si votre backend expose un
-            contrat différent.
-          </p>
-          <p>
-            AutoFlix étant une CLI Python, exposez-le via un petit service HTTP (FastAPI/Flask) déployé hors GitHub
-            Pages — voir le README pour l&apos;exemple.
+            Formats acceptés : <code className="text-accent-soft">movie:&lt;id&gt;</code>,{' '}
+            <code className="text-accent-soft">tv:&lt;id&gt;:&lt;saison&gt;:&lt;épisode&gt;</code>. Les sous-titres
+            WebVTT sont pris en charge via le champ <code className="text-accent-soft">subtitles</code>.
           </p>
         </div>
       </details>

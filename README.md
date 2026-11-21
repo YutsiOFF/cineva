@@ -1,12 +1,30 @@
 # CINEVA — interface de streaming (React + Vite + Tailwind)
 
 Front-end de streaming inspiré de Netflix / Disney+ : catalogue TMDB, carrousels,
-fiches détaillées, recherche, « Ma liste » locale et lecteur vidéo HLS avec
-contrôles personnalisés. **100 % statique**, prêt pour GitHub Pages.
+fiches détaillées, recherche, « Ma liste » locale, **où regarder légalement** et
+lecteur vidéo HLS avec contrôles personnalisés. **100 % statique**, déployé sur
+GitHub Pages.
 
-> Le site ne contient aucun flux vidéo : il affiche les métadonnées TMDB et lit
-> les sources renvoyées par les backends que vous configurez (CinePro Core,
-> AutoFlix). Voir « Résolution des flux ».
+- Site : <https://yutsioff.github.io/cineva/>
+- Dépôt : <https://github.com/YutsiOFF/cineva>
+
+> Le site n'héberge, ne stocke et ne fabrique aucun flux vidéo. La lecture utilise
+> les fichiers que vous déclarez dans `public/streams.json` ; la disponibilité des
+> titres provient de Watchmode et de Streaming Availability (Movie of the Night),
+> avec des liens vers les plateformes officielles.
+
+---
+
+## Ce qui fonctionne
+
+| Fonction | État |
+| --- | --- |
+| Catalogue TMDB (accueil, rangées, fiches, saisons, recherche) | ✅ en ligne |
+| « Ma liste » (localStorage) | ✅ |
+| Lecteur HLS/MP4 + contrôles custom | ✅ testé avec un flux public |
+| Lecture des vidéos de `public/streams.json` | ✅ (2 films du domaine public livrés) |
+| « Où regarder » (Watchmode / Movie of the Night) | ⚙️ codé — nécessite une clé API gratuite |
+| Lecture de films récents sous droits | ❌ hors périmètre : aucune source légale libre |
 
 ---
 
@@ -20,7 +38,7 @@ contrôles personnalisés. **100 % statique**, prêt pour GitHub Pages.
 | Routage | React Router 6 (`HashRouter`) |
 | État global | Zustand (`persist` → localStorage) |
 | Lecteur | `hls.js` + `<video>` natif, contrôles custom |
-| HTTP | `fetch` natif (aucun client lourd) |
+| HTTP | `fetch` natif |
 
 ---
 
@@ -28,130 +46,70 @@ contrôles personnalisés. **100 % statique**, prêt pour GitHub Pages.
 
 ```bash
 npm install
-cp .env.example .env     # puis renseignez vos variables
+cp .env.example .env     # puis renseignez vos clés
 npm run dev              # http://localhost:5173
 npm run build            # typecheck + build dans dist/
 npm run preview          # sert dist/ en local
 ```
-
-Node 20+ recommandé (le workflow CI utilise Node 20).
 
 ---
 
 ## Variables d'environnement
 
 Toutes les variables sont **publiques** : elles sont intégrées en clair dans le
-bundle (contrainte d'un site statique). Ne mettez jamais de secret ici.
+bundle. Ne mettez jamais de secret ici.
 
-| Variable | Rôle |
-| --- | --- |
-| `VITE_TMDB_API_KEY` | Clé API TMDB **v3** (32 caractères). Obligatoire. |
-| `VITE_TMDB_LANGUAGE` | Langue des métadonnées (`fr-FR` par défaut). |
-| `VITE_CINEPRO_API_URL` | Base URL d'une instance CinePro Core (optionnel). |
-| `VITE_AUTOFLIX_API_URL` | Base URL d'un service HTTP exposant AutoFlix (optionnel). |
-| `VITE_DEMO_STREAM_URL` | Flux HLS/MP4 public de test pour le lecteur (optionnel). |
+| Variable | Rôle | Où l'obtenir |
+| --- | --- | --- |
+| `VITE_TMDB_API_KEY` | Clé API TMDB **v3** (32 caractères) | <https://www.themoviedb.org/settings/api> |
+| `VITE_TMDB_LANGUAGE` | Langue des métadonnées (`fr-FR`) | — |
+| `VITE_WATCH_REGION` | Pays pour la disponibilité (`FR`) | — |
+| `VITE_WATCHMODE_API_KEY` | Clé Watchmode | <https://api.watchmode.com/requestApiKey/> |
+| `VITE_STREAMING_AVAILABILITY_API_KEY` | Clé Movie of the Night | <https://developers.movieofthenight.com/> |
+| `VITE_DEMO_STREAM_URL` | Flux public de test du lecteur (optionnel) | — |
 
-> La clé fournie dans `.env.example` est une clé v3 de démonstration (publique,
-> visible dans le bundle). Pour un site en production, créez la vôtre sur
-> <https://www.themoviedb.org/settings/api> et restreignez-la par domaine. Sans
-> clé valide, l'accueil affiche un écran de configuration explicite (pas une
-> page blanche).
-
-Variables lues **au build** : redémarrez `npm run dev` après modification du
-`.env`, et relancez le build avant un déploiement.
+Les deux clés de disponibilité sont **facultatives** : sans elles, la section
+« Où regarder » affiche simplement comment les activer.
 
 ---
 
-## Résolution des flux (CinePro / AutoFlix)
+## Où regarder (Watchmode / Streaming Availability)
 
-GitHub Pages ne peut exécuter ni Node ni Python : la résolution se fait donc via
-une **API HTTP distante** appelée depuis le navigateur.
-
-### Contrat attendu
-
-L'application appelle, pour chaque résolveur configuré :
+`src/services/watchProviders.ts` interroge, **depuis le navigateur** (les deux
+APIs renvoient `Access-Control-Allow-Origin: *`, donc compatibles GitHub Pages) :
 
 ```
-GET {BASE}/stream?type=movie&tmdb_id=603
-GET {BASE}/stream?type=tv&tmdb_id=1399&season=1&episode=1
+GET https://api.watchmode.com/v1/title/{movie|tv}-{tmdbId}/sources/?regions=FR
+    header X-API-Key: <VITE_WATCHMODE_API_KEY>
+
+GET https://api.movieofthenight.com/v4/shows/{movie|tv}/{tmdbId}
+    header X-API-Key: <VITE_STREAMING_AVAILABILITY_API_KEY>
 ```
 
-et attend une réponse de ce type :
+Le résultat est fusionné, dédupliqué et trié (abonnement → gratuit → publicité →
+location → achat). Chaque offre affiche la plateforme, le type, la qualité, le
+prix éventuel et un **lien officiel** (`web_url` / `link`) ouvert dans un nouvel
+onglet. Aucun flux vidéo n'est renvoyé par ces APIs : elles répondent à
+« où est-ce disponible légalement ? », pas « donne-moi le film ».
 
-```json
-{
-  "sources": [
-    {
-      "url": "https://cdn.exemple/master.m3u8",
-      "quality": "1080p",
-      "language": "VF",
-      "provider": "Provider A",
-      "subtitles": [
-        { "label": "Français", "lang": "fr", "url": "https://cdn.exemple/fr.vtt" }
-      ]
-    }
-  ]
-}
-```
+Notes :
 
-Le parseur (`src/services/streamResolver.ts`) tolère plusieurs variantes :
-`streams`, `links`, `data.sources`, `file`, `src`, `playlist`, `resolution`,
-`tracks`… Adaptez **uniquement** `normalizeSources` (ou le chemin dans
-`buildStreamEndpoint`) si votre backend expose un autre contrat.
+- Watchmode offre 2 500 crédits/mois (non commercial) et 3 pays sur le plan gratuit.
+- Movie of the Night propose un plan gratuit sans carte.
+- `VITE_WATCH_REGION` change le pays interrogé (`FR`, `BE`, `CA`, `US`…).
+- **Simkl** n'est pas utilisé : son API sert au suivi de visionnage (watchlist,
+  scrobble, OAuth) et aux métadonnées, sans disponibilité ni URL de lecture.
+  L'ajouter imposerait un compte utilisateur, inutile pour cette fonctionnalité.
+- **api.moviez.ac** n'est pas intégré : c'est un service d'embed de films, hors du
+  cadre légal des APIs ci-dessus. Le projet ne branche pas de source non autorisée.
 
-### Comportement
+---
 
-1. Les résolveurs configurés sont interrogés **dans l'ordre** (CinePro puis
-   AutoFlix) ; un échec n'empêche pas l'autre de répondre.
-2. Les sources sont dédupliquées et triées par qualité (1080p > 720p > Auto).
-3. Si `VITE_DEMO_STREAM_URL` est défini et qu'aucune source n'est trouvée, ce
-   flux de démonstration est proposé (uniquement pour valider le lecteur).
-4. Sinon, la page de lecture affiche un panneau « Aucun flux disponible » avec
-   les erreurs remontées et la procédure de configuration — jamais de source
-   inventée.
-
-### Exemple de shim HTTP pour AutoFlix
-
-`autoflix-cli` est une CLI/librairie Python : exposez-la derrière un petit
-service (hébergé ailleurs que sur GitHub Pages) et autorisez l'origine de votre
-site en CORS.
-
-```python
-# autoflix_api.py — exemple indicatif, adaptez aux fonctions réelles du paquet
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import autoflix
-
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://<utilisateur>.github.io"],
-    allow_methods=["GET"],
-)
-
-@app.get("/stream")
-def stream(type: str, tmdb_id: int, season: int = 1, episode: int = 1):
-    try:
-        sources = autoflix.search_streams(
-            tmdb_id=tmdb_id, media_type=type, season=season, episode=episode
-        )
-    except Exception as exc:  # provider indisponible, titre introuvable…
-        raise HTTPException(status_code=502, detail=str(exc))
-    return {"sources": sources}
-```
-
-```bash
-uvicorn autoflix_api:app --host 0.0.0.0 --port 8000
-```
-
-CinePro Core s'expose de la même manière : pointez `VITE_CINEPRO_API_URL` vers
-l'instance et vérifiez que la route de résolution et le CORS correspondent.
-
-### Option sans backend : catalogue local (`public/streams.json`)
+## Lecture : `public/streams.json`
 
 Pour lire des vidéos dont vous détenez les droits (ou du domaine public), aucun
 serveur n'est nécessaire. Hébergez le fichier en HTTPS (Cloudflare R2, S3, Bunny,
-un serveur à vous…) puis déclarez-le dans `public/streams.json` :
+un serveur à vous…) puis déclarez-le :
 
 ```json
 {
@@ -170,49 +128,37 @@ un serveur à vous…) puis déclarez-le dans `public/streams.json` :
 }
 ```
 
-- Clés : `movie:<tmdbId>`, ou pour une série `tv:<tmdbId>`, `tv:<tmdbId>:<saison>`,
-  `tv:<tmdbId>:<saison>:<épisode>` (la clé la plus précise gagne).
-- Formats : MP4 H.264 (progressive) ou HLS `.m3u8` ; sous-titres WebVTT.
-- Une source locale est **prioritaire** sur les résolveurs distants.
-- Le fichier est servi depuis la racine du site (`/streams.json`, ou
-  `/cineva/streams.json` sur GitHub Pages).
-
-Le dépôt est livré avec deux films du **domaine public** en démonstration
-(*Metropolis*, 1927 — TMDB 19 ; *Nosferatu*, 1922 — TMDB 653) : leur bouton
-« Lecture » fonctionne réellement, sans backend. Remplacez-les par vos contenus.
+- Clés : `movie:<tmdbId>`, `tv:<tmdbId>`, `tv:<tmdbId>:<saison>`, `tv:<tmdbId>:<saison>:<épisode>`
+  (la clé la plus précise gagne).
+- Formats : MP4 H.264 ou HLS `.m3u8` ; sous-titres WebVTT.
+- Le fichier est servi à la racine du site (`/streams.json`, `/cineva/streams.json`
+  sur GitHub Pages).
+- Le dépôt contient deux films du **domaine public** en démonstration :
+  *Metropolis* (1927, TMDB 19) et *Nosferatu* (1922, TMDB 653).
 
 ### Lecteur
 
-- HLS via `hls.js` avec récupération automatique (réseau / média), bascule sur
-  le HLS natif Safari.
-- MP4/WebM en `<video>` natif, embeds en iframe.
-- Contrôles custom : lecture, ±10 s, volume, qualité (niveaux HLS), pistes de
-  sous-titres (intégrées ou externes `.vtt`), PiP, plein écran.
-- Raccourcis clavier : `Espace`/`K`, `←`/`→` (±5 s), `↑`/`↓` (volume), `M`, `F`.
+- HLS via `hls.js` (récupération auto réseau/média), HLS natif Safari, MP4 natif, embeds iframe.
+- Contrôles : lecture, ±10 s, volume, qualité (niveaux HLS), sous-titres,
+  image dans l'image, plein écran. Raccourcis : `Espace`/`K`, `←`/`→`, `↑`/`↓`, `M`, `F`.
 
 ---
 
 ## Déploiement sur GitHub Pages
 
-1. Poussez le projet sur GitHub (branche `main`).
-2. **Settings → Pages → Source : Deploy from a branch → `gh-pages` / `/ (root)`**.
-3. Le workflow `.github/workflows/deploy.yml` build et publie automatiquement
-   `dist/` sur `gh-pages` à chaque push sur `main`.
-4. (Optionnel) **Settings → Secrets and variables → Actions** :
-   - secret `TMDB_API_KEY` : votre clé TMDB (sinon la clé par défaut est utilisée) ;
-   - variable `CINEPRO_API_URL` / `AUTOFLIX_API_URL` : vos résolveurs.
+Le workflow `.github/workflows/deploy.yml` build et publie `dist/` sur la branche
+`gh-pages` à chaque push sur `main`. Pages est configuré sur cette branche.
 
-### Base path
+- Base path : `BASE_PATH=/<nom-du-repo>/` est défini par le workflow, donc les
+  assets pointent vers `https://<user>.github.io/<repo>/`.
+- Routage : `HashRouter` (`#/film/603`), aucun rewrite serveur nécessaire.
+- Clés : **Settings → Secrets and variables → Actions → Variables**
+  - `WATCHMODE_API_KEY`
+  - `STREAMING_AVAILABILITY_API_KEY`
+  - `WATCH_REGION` (facultatif, `FR` par défaut)
 
-`vite.config.ts` lit `BASE_PATH` (défini dans le workflow à
-`/<nom-du-repo>/`) : les assets pointent automatiquement vers
-`https://<user>.github.io/<repo>/`. En local, `BASE_PATH` est vide → `/`.
-
-### HashRouter
-
-Les URLs sont de la forme `https://<user>.github.io/<repo>/#/film/603`. Aucun
-rewrite serveur n'est nécessaire, un rafraîchissement ou un partage de lien
-fonctionne directement.
+  Après ajout d'une variable, relancez le workflow (Actions → Deploy to GitHub
+  Pages → Run workflow) : les valeurs sont injectées au build.
 
 ---
 
@@ -220,38 +166,35 @@ fonctionne directement.
 
 ```
 .github/workflows/deploy.yml   Build + publication sur gh-pages
-index.html                     Entrée HTML, polices, favicon
+public/streams.json            Catalogue local de sources (vos vidéos)
 src/
 ├── App.tsx                    Routes (lazy) + ScrollToTop
 ├── main.tsx                   HashRouter + StrictMode
-├── index.css                  Tailwind, thème, styles du lecteur
 ├── components/
 │   ├── layout/                Header, ProfileMenu, Footer, AppLayout
-│   ├── media/                 HeroBanner, MediaRow, MediaCard, MediaGrid, TrailerModal
+│   ├── media/                 HeroBanner, MediaRow, MediaCard, MediaGrid,
+│   │                          TrailerModal, WatchProviders
 │   ├── player/                VideoPlayer (HLS), SourceList
 │   └── ui/                    Icônes, Skeleton, ErrorState, Logo, PosterImage
-├── config/rows.ts             Rangées de l'accueil (une entrée = une rangée)
+├── config/rows.ts             Rangées de l'accueil
 ├── hooks/                     useAsync (annulable), useDebouncedValue
-├── lib/                       cn(), formatage FR
 ├── pages/                     Home, Detail, Search, MyList, Watch, NotFound
 ├── services/
 │   ├── tmdb.ts                Client TMDB typé, cache 5 min, erreurs FR
-│   └── streamResolver.ts      Résolveurs CinePro/AutoFlix + normalisation
-├── store/myList.ts            Zustand + persist (localStorage)
-└── types/media.ts             Types métier partagés
+│   ├── watchProviders.ts      Disponibilité Watchmode + Movie of the Night
+│   └── streamResolver.ts      Catalogue local + flux de démo
+├── store/myList.ts            Zustand + persist
+└── types/media.ts             Types métier
 ```
-
-Ajouter une rangée d'accueil = ajouter une entrée dans `src/config/rows.ts`.
 
 ---
 
 ## Qualité & limites
 
 - Responsive mobile → desktop, images `loading="lazy"`, code splitting par route,
-  squelettes de chargement, erreurs localisées par rangée, `aria-label` sur les
-  contrôles du lecteur, navigation clavier, `prefers-reduced-motion`.
-- Clé TMDB : publique par conception (appel navigateur), à restreindre par
-  domaine dans le tableau de bord TMDB.
-- Les flux affichés dépendent des backends que vous connectez ; l'usage de
-  sources non autorisées relève de votre responsabilité.
-- Pas de compte utilisateur : « Ma liste » vit dans le localStorage.
+  squelettes, erreurs par section, `aria-label` sur les contrôles du lecteur,
+  navigation clavier, `prefers-reduced-motion`.
+- Clé TMDB publique par conception, à restreindre par domaine dans TMDB.
+- Les APIs de disponibilité peuvent ne pas référencer un titre : le lien officiel
+  fait foi.
+- Aucun compte utilisateur : « Ma liste » vit dans le localStorage.

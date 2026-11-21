@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { MediaRow } from '../components/media/MediaRow'
 import { TrailerModal } from '../components/media/TrailerModal'
+import { WatchProviders } from '../components/media/WatchProviders'
 import { PosterImage } from '../components/ui/PosterImage'
 import { ErrorState } from '../components/ui/ErrorState'
 import { ArrowLeftIcon, CheckIcon, PlayIcon, PlusIcon, StarIcon } from '../components/ui/icons'
@@ -244,6 +245,8 @@ export default function DetailPage({ kind }: { kind: MediaKind }) {
             </Link>
           </aside>
         </div>
+
+        <WatchProviders kind={kind} tmdbId={detail.id} className="mt-10" />
       </div>
 
       {detail.similar.length > 0 && (

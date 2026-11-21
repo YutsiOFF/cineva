@@ -8,8 +8,9 @@ export function Footer() {
         <div className="max-w-sm space-y-3">
           <Logo />
           <p className="text-sm leading-relaxed text-white/45">
-            Interface de streaming : catalogue TMDB, ma liste locale et lecteur HLS. Les flux vidéo
-            proviennent exclusivement des instances CinePro / AutoFlix que vous configurez.
+            Interface de streaming : catalogue TMDB, ma liste locale, lecteur HLS et disponibilité
+            légale. Les vidéos lisibles viennent de votre catalogue local ; les plateformes sont
+            fournies par Watchmode et Movie of the Night.
           </p>
         </div>
 
@@ -35,36 +36,36 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">Résolution</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">Disponibilité</p>
             <ul className="mt-3 space-y-2">
               <li>
                 <a
-                  href="https://github.com/cinepro-org/core"
+                  href="https://api.watchmode.com"
                   target="_blank"
                   rel="noreferrer noopener"
                   className="link-muted"
                 >
-                  CinePro Core
+                  Watchmode
                 </a>
               </li>
               <li>
                 <a
-                  href="https://github.com/PaulExplorer/autoflix-cli"
+                  href="https://www.movieofthenight.com/about/api"
                   target="_blank"
                   rel="noreferrer noopener"
                   className="link-muted"
                 >
-                  AutoFlix CLI
+                  Streaming Availability
                 </a>
               </li>
               <li>
                 <a
-                  href="https://github.com/4texas4/movie-scraper"
+                  href="https://api.simkl.org"
                   target="_blank"
                   rel="noreferrer noopener"
                   className="link-muted"
                 >
-                  movie-scraper (référence HLS)
+                  Simkl
                 </a>
               </li>
             </ul>
